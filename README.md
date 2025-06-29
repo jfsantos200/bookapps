@@ -1,5 +1,3 @@
-# bookapps
-# bookapps
 
 # BookApps (Versión Local)
 
