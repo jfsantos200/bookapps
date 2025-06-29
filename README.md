@@ -33,24 +33,8 @@ App de Biblioteca Personal en Flutter
 
 ## 🏗️ Estructura del proyecto
 
-bookapps/
-├── lib/
-│ ├── main.dart
-│ ├── firebase_options.dart # (generado con FlutterFire CLI)
-│ ├── models/
-│ │ └── libro.dart
-│ ├── services/
-│ │ └── libros_service.dart # Solo SharedPreferences, no Firestore
-│ ├── widgets/
-│ │ └── google_books_search.dart
-│ └── screens/
-│ ├── login_screen.dart
-│ ├── perfil_usuario.dart
-│ ├── recuperar_contrasena.dart
-│ ├── lista_libros.dart
-│ ├── agregar_libro_screen.dart
-│ └── libros_leidos_screen.dart
-├── pubspec.yaml
+![image](https://github.com/user-attachments/assets/0de495fc-87c3-4e41-890c-0b39a4844368)
+
 
 ---
 
