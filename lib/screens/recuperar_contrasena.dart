@@ -19,6 +19,7 @@ class _RecuperarContrasenaState extends State<RecuperarContrasena> {
       );
       setState(() => _enviado = true);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: ${e.toString()}")),
       );
