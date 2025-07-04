@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'lista_libros.dart';
 import 'recuperar_contrasena.dart';
 
-const Color primaryColor = Colors.blue;
+const Color primaryColor = Color.fromARGB(255, 243, 89, 33);
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,14 +16,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  bool _showPassword = false;
-  bool _isRegisterMode = false;
-  bool _isLoading = false;
-
-  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  bool _isRegisterMode = false;
+  final _nameController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _showPassword = false;
 
   void _toggleRegisterMode() {
     setState(() => _isRegisterMode = !_isRegisterMode);
@@ -37,17 +37,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String? _validatePassword(String? value) {
-    if (value == null ||
-        !RegExp(r'^(?=.*[a-zA-Z])(?=.*\d).{8,}$').hasMatch(value)) {
-      return 'Min. 8 caracteres con letras y números';
+    if (value == null || value.length < 6) {
+      return 'Mínimo 6 caracteres';
     }
     return null;
   }
 
   String? _validateName(String? value) {
-    if (_isRegisterMode &&
-        (value == null || !RegExp(r'^[a-z]+$').hasMatch(value))) {
-      return 'Solo minúsculas';
+    if (_isRegisterMode && (value == null || value.isEmpty)) {
+      return 'Campo obligatorio';
     }
     return null;
   }
@@ -66,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const ListaLibros()),
@@ -99,10 +98,29 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      final googleAuth = await googleUser?.authentication;
+      // Usa el clientId solo para web, en Android/iOS déjalo nulo.
+      final googleSignIn = GoogleSignIn(
+        clientId: kIsWeb
+            ? '139849852555-vpr8b6o34k12bpuoivqqmnrvq6pfb5n1.apps.googleusercontent.com'
+            : null,
+      );
 
-      if (googleAuth == null) throw 'Error autenticando con Google';
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        _showError('Inicio de sesión cancelado');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      if (googleAuth.idToken == null) {
+        _showError('Error autenticando con Google (idToken no recibido)');
+        setState(() => _isLoading = false);
+        return;
+      }
 
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -111,6 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       await FirebaseAuth.instance.signInWithCredential(credential);
 
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const ListaLibros()),
@@ -128,7 +147,6 @@ class _LoginScreenState extends State<LoginScreen> {
       MaterialPageRoute(builder: (_) => const RecuperarContrasena()),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -160,11 +178,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: !_isRegisterMode
-                                  ? primaryColor
-                                  : Colors.grey,
+                                  ? primaryColor // Active color
+                                  : Colors.grey, // Inactive color
                             ),
                             onPressed: _isRegisterMode
-                                ? _toggleRegisterMode
+                                ? _toggleRegisterMode // Only clickable if in register mode
                                 : null,
                             child: const Text("Iniciar Sesión"),
                           ),
@@ -172,11 +190,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _isRegisterMode
-                                  ? primaryColor
-                                  : Colors.grey,
+                                  ? primaryColor // Active color
+                                  : Colors.grey, // Inactive color
                             ),
                             onPressed: !_isRegisterMode
-                                ? _toggleRegisterMode
+                                ? _toggleRegisterMode // Only clickable if not in register mode
                                 : null,
                             child: const Text("Crear Cuenta"),
                           ),
@@ -248,12 +266,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               icon: const Icon(Icons.login),
                               label: const Text("Iniciar con Google"),
                             ),
-                           // const SizedBox(height: 8),
-                            //TextButton.icon(
-                              //onPressed: _gotoPerfil,
-                              //icon: const Icon(Icons.person),
-                              //label: const Text("Ir a perfil"),
-                            //),
                           ],
                         ),
                       ),

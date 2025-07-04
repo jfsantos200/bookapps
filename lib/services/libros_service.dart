@@ -4,8 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/libro.dart';
 
 class LibrosService {
-  static const String key = 'libros_list';
-
+  static const String key = 'libros_list_key';
+ 
   static Future<List<Libro>> getLibros() async {
     final prefs = await SharedPreferences.getInstance();
     final data = prefs.getString(key);

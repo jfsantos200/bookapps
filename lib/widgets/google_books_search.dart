@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+
 class GoogleBooksSearch extends StatefulWidget {
   final Function(Map<String, dynamic>)? onSelected;
   const GoogleBooksSearch({super.key, this.onSelected});
@@ -79,7 +80,7 @@ class _GoogleBooksSearchState extends State<GoogleBooksSearch> {
           Expanded(
             child: ListView.separated(
               itemCount: _results.length,
-              separatorBuilder: (_, __) => const Divider(),
+              separatorBuilder: (_, _) => const Divider(),
               itemBuilder: (_, i) {
                 final libro = _results[i];
                 return ListTile(

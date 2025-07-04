@@ -26,20 +26,15 @@ class _PerfilUsuarioState extends State<PerfilUsuario> {
     });
   }
 
-  Future<void> _enviarVerificacion() async {
-    await user?.sendEmailVerification();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Correo de verificación enviado')),
-    );
-    _refreshUser();
-  }
 
-  Future<void> _enviarRecuperacion() async {
-    if (user?.email == null) return;
-    await FirebaseAuth.instance.sendPasswordResetEmail(email: user!.email!);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Correo de recuperación enviado')),
-    );
+  Future<void> _enviarVerificacion() async {
+    if (user != null && !user!.emailVerified) {
+      await user!.sendEmailVerification();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Correo de verificación enviado')),
+      );
+    }
   }
 
   @override
@@ -77,16 +72,11 @@ class _PerfilUsuarioState extends State<PerfilUsuario> {
               ),
             ElevatedButton.icon(
               icon: const Icon(Icons.lock_reset),
-              label: const Text("Enviar recuperación de contraseña"),
-              onPressed: _enviarRecuperacion,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.logout),
               label: const Text("Cerrar sesión"),
               onPressed: () async {
+                final navigator = Navigator.of(context);
                 await FirebaseAuth.instance.signOut();
-                if (mounted) Navigator.of(context).pop();
+                navigator.pop();
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             ),
