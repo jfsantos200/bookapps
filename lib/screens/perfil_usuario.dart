@@ -1,100 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme.dart';
+import 'editar_perfil_screen.dart';
 
 class PerfilUsuario extends StatefulWidget {
   const PerfilUsuario({super.key});
-
   @override
   State<PerfilUsuario> createState() => _PerfilUsuarioState();
 }
 
 class _PerfilUsuarioState extends State<PerfilUsuario> {
-  late User? user;
+  String nombre = '';
+  String apellido = '';
+  int edad = 0;
+  String email = '';
 
   @override
   void initState() {
     super.initState();
-    user = FirebaseAuth.instance.currentUser;
-    _refreshUser();
+    _cargarDatos();
   }
 
-  Future<void> _refreshUser() async {
-    user = FirebaseAuth.instance.currentUser;
-    await user?.reload();
-    setState(() {
-      user = FirebaseAuth.instance.currentUser;
-    });
+  Future<void> _cargarDatos() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('usuarios').doc(uid).get();
+    if (doc.exists) {
+      setState(() {
+        nombre = doc['nombre'] ?? '';
+        apellido = doc['apellido'] ?? '';
+        edad = doc['edad'] ?? 0;
+        email = doc['email'] ?? '';
+      });
+    }
   }
 
-  Future<void> _enviarVerificacion() async {
-    await user?.sendEmailVerification();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Correo de verificación enviado')),
+  Future<void> _editarPerfil() async {
+    final actualizado = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const EditarPerfilScreen()),
     );
-    _refreshUser();
-  }
-
-  Future<void> _enviarRecuperacion() async {
-    if (user?.email == null) return;
-    await FirebaseAuth.instance.sendPasswordResetEmail(email: user!.email!);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Correo de recuperación enviado')),
-    );
+    if (actualizado == true) {
+      _cargarDatos();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final verificado = user?.emailVerified ?? false;
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Perfil de Usuario')),
+      appBar: AppBar(title: const Text('Mi Perfil')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Correo: ${user?.email ?? ''}"),
+            CircleAvatar(
+              radius: 48,
+              backgroundColor: AdminLteColors.primary,
+              child: Icon(Icons.person, color: Colors.white, size: 48),
+            ),
+            const SizedBox(height: 24),
+            Text('$nombre $apellido', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AdminLteColors.dark)),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  "Estado: ",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                verificado
-                    ? const Text("✔️ Verificado",
-                        style: TextStyle(color: Colors.green))
-                    : const Text("❌ No verificado",
-                        style: TextStyle(color: Colors.red)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (!verificado)
-              ElevatedButton.icon(
-                icon: const Icon(Icons.verified),
-                label: const Text("Enviar correo de verificación"),
-                onPressed: _enviarVerificacion,
-              ),
+            Text('Edad: $edad', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AdminLteColors.gray)),
+            const SizedBox(height: 8),
+            Text(email, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AdminLteColors.gray)),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
-              icon: const Icon(Icons.lock_reset),
-              label: const Text("Enviar recuperación de contraseña"),
-              onPressed: _enviarRecuperacion,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.logout),
-              label: const Text("Cerrar sesión"),
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                if (mounted) Navigator.of(context).pop();
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            ),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text("Actualizar estado"),
-              onPressed: _refreshUser,
+              onPressed: _editarPerfil,
+              icon: const Icon(Icons.edit),
+              label: const Text('Editar perfil'),
             ),
           ],
         ),

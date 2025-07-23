@@ -1,96 +1,155 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import '../models/libro.dart';
-import 'package:uuid/uuid.dart';
+import '../services/libros_service.dart';
 
-class BuscarLibroGoogle extends StatefulWidget {
-  const BuscarLibroGoogle({super.key});
+class BuscarLibroGoogleScreen extends StatefulWidget {
+  const BuscarLibroGoogleScreen({super.key});
 
   @override
-  State<BuscarLibroGoogle> createState() => _BuscarLibroGoogleState();
+  State<BuscarLibroGoogleScreen> createState() => _BuscarLibroGoogleScreenState();
 }
 
-class _BuscarLibroGoogleState extends State<BuscarLibroGoogle> {
-  final _controller = TextEditingController();
-  List<Libro> _resultados = [];
-  bool _cargando = false;
+class _BuscarLibroGoogleScreenState extends State<BuscarLibroGoogleScreen> {
+  final _busquedaController = TextEditingController();
+  List<dynamic> _resultados = [];
+  bool _loading = false;
+  String _fuente = 'Google Books';
 
-  Future<void> _buscar() async {
-    setState(() => _cargando = true);
-    final query = _controller.text.trim();
-    if (query.isEmpty) {
-      setState(() => _cargando = false);
-      return;
-    }
-    final url = 'https://www.googleapis.com/books/v1/volumes?q=${Uri.encodeComponent(query)}';
-    final resp = await http.get(Uri.parse(url));
-    final data = jsonDecode(resp.body);
-
+  Future<void> _buscarLibro(String texto) async {
     setState(() {
+      _loading = true;
       _resultados = [];
-      if (data['items'] != null) {
-        _resultados = (data['items'] as List)
-            .map((item) => Libro(
-                  id: item['id'] ?? const Uuid().v4(),
-                  titulo: item['volumeInfo']['title'] ?? '',
-                  autor: (item['volumeInfo']['authors'] != null && (item['volumeInfo']['authors'] as List).isNotEmpty)
-                      ? (item['volumeInfo']['authors'] as List).join(', ')
-                      : 'Desconocido',
-                ))
-            .toList();
-      }
-      _cargando = false;
     });
+    if (_fuente == 'Google Books') {
+      final url = Uri.parse('https://www.googleapis.com/books/v1/volumes?q=${Uri.encodeComponent(texto)}');
+      final respuesta = await http.get(url);
+      if (respuesta.statusCode == 200) {
+        final data = json.decode(respuesta.body);
+        setState(() {
+          _resultados = data['items'] ?? [];
+        });
+      }
+    } else {
+      // Open Library
+      final url = Uri.parse('https://openlibrary.org/search.json?q=${Uri.encodeComponent(texto)}');
+      final respuesta = await http.get(url);
+      if (respuesta.statusCode == 200) {
+        final data = json.decode(respuesta.body);
+        setState(() {
+          _resultados = data['docs'] ?? [];
+        });
+      }
+    }
+    setState(() {
+      _loading = false;
+    });
+  }
+
+  Future<void> _agregarLibro(dynamic libroData) async {
+    if (_fuente == 'Google Books') {
+      final libro = libroData['volumeInfo'];
+      final nuevoLibro = Libro(
+        titulo: libro['title'] ?? 'Sin título',
+        autor: (libro['authors'] ?? ['Desconocido']).join(', '),
+        imagen: (libro['imageLinks'] != null) ? libro['imageLinks']['thumbnail'] ?? '' : '',
+        leido: false, id: '',
+      );
+      await LibrosService.addLibro(nuevoLibro);
+    } else {
+      final nuevoLibro = Libro(
+        titulo: libroData['title'] ?? 'Sin título',
+        autor: (libroData['author_name'] ?? ['Desconocido']).join(', '),
+        imagen: libroData['cover_i'] != null
+            ? 'https://covers.openlibrary.org/b/id/${libroData['cover_i']}-M.jpg'
+            : '',
+        leido: false, id: '',
+      );
+      await LibrosService.addLibro(nuevoLibro);
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('¡Libro agregado a tu colección!')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Buscar libro en Google Books")),
+      appBar: AppBar(
+        title: const Text('Buscar Libro en Internet'),
+        actions: [
+          DropdownButton<String>(
+            value: _fuente,
+            dropdownColor: Colors.white,
+            underline: Container(),
+            onChanged: (v) {
+              if (v != null) setState(() => _fuente = v);
+            },
+            items: const [
+              DropdownMenuItem(value: 'Google Books', child: Text('Google Books')),
+              DropdownMenuItem(value: 'Open Library', child: Text('Open Library')),
+            ],
+          ),
+          const SizedBox(width: 16)
+        ],
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(labelText: "Título, autor, ISBN..."),
-                    onSubmitted: (_) => _buscar(),
-                  ),
-                ),
-                IconButton(
+            TextField(
+              controller: _busquedaController,
+              decoration: InputDecoration(
+                labelText: 'Título, autor o ISBN',
+                suffixIcon: IconButton(
                   icon: const Icon(Icons.search),
-                  onPressed: _buscar,
+                  onPressed: () => _buscarLibro(_busquedaController.text),
                 ),
-              ],
+              ),
+              onSubmitted: _buscarLibro,
             ),
-            const SizedBox(height: 16),
-            if (_cargando)
-              const Center(child: CircularProgressIndicator())
-            else if (_resultados.isEmpty)
-              const Text("Sin resultados")
-            else
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _resultados.length,
-                  itemBuilder: (_, i) {
-                    final libro = _resultados[i];
-                    return ListTile(
-                      title: Text(libro.titulo),
-                      subtitle: Text(libro.autor),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.add),
-                        tooltip: "Agregar a mi biblioteca",
-                        onPressed: () => Navigator.pop(context, libro),
-                      ),
-                    );
-                  },
-                ),
-              )
+            const SizedBox(height: 20),
+            _loading
+                ? const CircularProgressIndicator()
+                : Expanded(
+                    child: ListView.builder(
+                      itemCount: _resultados.length,
+                      itemBuilder: (context, i) {
+                        String titulo, autores, img;
+                        if (_fuente == 'Google Books') {
+                          final libro = _resultados[i]['volumeInfo'];
+                          titulo = libro['title'] ?? 'Sin título';
+                          autores = (libro['authors'] ?? ['Desconocido']).join(', ');
+                          img = (libro['imageLinks'] != null)
+                              ? libro['imageLinks']['thumbnail'] ?? ''
+                              : '';
+                        } else {
+                          final libro = _resultados[i];
+                          titulo = libro['title'] ?? 'Sin título';
+                          autores = (libro['author_name'] ?? ['Desconocido']).join(', ');
+                          img = libro['cover_i'] != null
+                              ? 'https://covers.openlibrary.org/b/id/${libro['cover_i']}-M.jpg'
+                              : '';
+                        }
+
+                        return Card(
+                          child: ListTile(
+                            leading: img.isNotEmpty
+                                ? Image.network(img, width: 40, fit: BoxFit.cover)
+                                : const Icon(Icons.book),
+                            title: Text(titulo),
+                            subtitle: Text(autores),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.add),
+                              tooltip: 'Agregar a mi colección',
+                              onPressed: () => _agregarLibro(_resultados[i]),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
           ],
         ),
       ),

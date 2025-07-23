@@ -9,14 +9,14 @@ class Libro {
     required this.id,
     required this.titulo,
     required this.autor,
-    this.leido = false,
+    this.leido = false, required String imagen,
   });
 
   Libro copyWith({bool? leido}) => Libro(
         id: id,
         titulo: titulo,
         autor: autor,
-        leido: leido ?? this.leido,
+        leido: leido ?? this.leido, imagen: '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +30,8 @@ class Libro {
         id: json['id'],
         titulo: json['titulo'],
         autor: json['autor'],
-        leido: json['leido'] ?? false,
+        leido: json['leido'] ?? false, imagen: '',
       );
+
+  get imagen => null;
 }

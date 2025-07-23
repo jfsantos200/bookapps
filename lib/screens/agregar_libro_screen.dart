@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/google_books_search.dart';
 import '../models/libro.dart';
-import 'package:uuid/uuid.dart';
 
 class AgregarLibroScreen extends StatefulWidget {
   const AgregarLibroScreen({super.key});
@@ -11,85 +9,68 @@ class AgregarLibroScreen extends StatefulWidget {
 }
 
 class _AgregarLibroScreenState extends State<AgregarLibroScreen> {
-  bool _modoGoogle = false;
   final _formKey = GlobalKey<FormState>();
-  final _tituloCtrl = TextEditingController();
-  final _autorCtrl = TextEditingController();
-
-  void _agregarManual() {
-    if (_formKey.currentState!.validate()) {
-      final libro = Libro(
-        id: const Uuid().v4(),
-        titulo: _tituloCtrl.text,
-        autor: _autorCtrl.text,
-      );
-      Navigator.pop(context, libro);
-    }
-  }
-
-  void _agregarDesdeGoogle(Map<String, dynamic> datos) {
-    final libro = Libro(
-      id: datos['id'],
-      titulo: datos['titulo'],
-      autor: datos['autor'],
-    );
-    Navigator.pop(context, libro);
-  }
+  final _tituloController = TextEditingController();
+  final _autorController = TextEditingController();
+  final _imagenController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Agregar libro")),
+      appBar: AppBar(title: const Text('Agregar Libro')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ChoiceChip(
-                  label: const Text("Manual"),
-                  selected: !_modoGoogle,
-                  onSelected: (sel) => setState(() => _modoGoogle = !sel),
+        padding: const EdgeInsets.all(24.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _tituloController,
+                decoration: const InputDecoration(
+                  labelText: 'Título',
+                  prefixIcon: Icon(Icons.book),
                 ),
-                const SizedBox(width: 12),
-                ChoiceChip(
-                  label: const Text("Google Books"),
-                  selected: _modoGoogle,
-                  onSelected: (sel) => setState(() => _modoGoogle = sel),
+                validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _autorController,
+                decoration: const InputDecoration(
+                  labelText: 'Autor',
+                  prefixIcon: Icon(Icons.person),
                 ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: !_modoGoogle
-                  ? Form(
-                      key: _formKey,
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            controller: _tituloCtrl,
-                            decoration: const InputDecoration(labelText: "Título"),
-                            validator: (v) => v == null || v.isEmpty ? "Obligatorio" : null,
-                          ),
-                          TextFormField(
-                            controller: _autorCtrl,
-                            decoration: const InputDecoration(labelText: "Autor"),
-                            validator: (v) => v == null || v.isEmpty ? "Obligatorio" : null,
-                          ),
-                          const Spacer(),
-                          ElevatedButton(
-                            onPressed: _agregarManual,
-                            child: const Text("Agregar"),
-                          ),
-                        ],
-                      ),
-                    )
-                  : GoogleBooksSearch(
-                      onSelected: _agregarDesdeGoogle,
-                    ),
-            ),
-          ],
+                validator: (v) => v == null || v.isEmpty ? 'Campo requerido' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _imagenController,
+                decoration: const InputDecoration(
+                  labelText: 'URL de imagen',
+                  prefixIcon: Icon(Icons.image),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,                height: 50,
+
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save),
+                  label: const Text('Guardar'),
+                  onPressed: () {
+                    if (_formKey.currentState?.validate() ?? false) {
+                      final libro = Libro(
+                        titulo: _tituloController.text,
+                        autor: _autorController.text,
+                        imagen: _imagenController.text,
+                        leido: false, id: '',
+                      );
+                      Navigator.of(context).pop(libro);
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
