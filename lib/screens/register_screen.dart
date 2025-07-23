@@ -3,12 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'dart:io';
+
 import '../theme.dart';
 import 'lista_libros.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
-
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
@@ -22,13 +25,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
+  File? _pickedPhoto;
+  String _photoUrl = '';
   bool _loading = false;
   String? _errorMessage;
+  bool _enviadoCorreoVerificacion = false;
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+    if (picked != null) setState(() => _pickedPhoto = File(picked.path));
+  }
+
+  Future<String?> _subirFoto(String uid) async {
+    if (_pickedPhoto == null) return null;
+    final storageRef = FirebaseStorage.instance.ref().child('user_profiles').child('$uid.jpg');
+    await storageRef.putFile(_pickedPhoto!);
+    return await storageRef.getDownloadURL();
+  }
 
   Future<void> _register() async {
     setState(() {
       _loading = true;
       _errorMessage = null;
+      _enviadoCorreoVerificacion = false;
     });
     try {
       final nombre = _nombreController.text.trim();
@@ -42,6 +62,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: password,
       );
 
+      String? urlFoto = await _subirFoto(userCredential.user!.uid);
+      if (urlFoto != null) {
+        await userCredential.user!.updatePhotoURL(urlFoto);
+        _photoUrl = urlFoto;
+      }
+      await userCredential.user!.updateDisplayName('$nombre $apellido');
+
       await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(userCredential.user!.uid)
@@ -50,11 +77,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'apellido': apellido,
         'edad': edad,
         'email': email,
+        'photoUrl': _photoUrl,
         'creado': FieldValue.serverTimestamp(),
       });
 
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const ListaLibros()),
+      await userCredential.user!.sendEmailVerification();
+      setState(() {
+        _enviadoCorreoVerificacion = true;
+      });
+
+      // Puedes mostrar un aviso al usuario que debe verificar su correo
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Verificación de correo'),
+          content: const Text('Se ha enviado un correo para verificar tu cuenta. Verifica antes de continuar.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const ListaLibros()),
+                );
+              },
+              child: const Text('OK'),
+            )
+          ],
+        ),
       );
     } on FirebaseAuthException catch (e) {
       setState(() => _errorMessage = e.message);
@@ -83,7 +132,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final doc = await FirebaseFirestore.instance.collection('usuarios').doc(userCredential.user!.uid).get();
       if (!doc.exists) {
-        await _pedirDatosExtrasGoogle(userCredential.user!);
+        await _completarPerfilGoogle(userCredential.user!);
       }
 
       Navigator.of(context).pushReplacement(
@@ -96,56 +145,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _pedirDatosExtrasGoogle(User user) async {
+  Future<void> _completarPerfilGoogle(User user) async {
     String nombre = '';
     String apellido = '';
     String edadStr = '';
+    File? localFoto;
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Completa tu perfil'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              decoration: const InputDecoration(labelText: 'Nombre'),
-              onChanged: (v) => nombre = v,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Completa tu perfil'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  final picker = ImagePicker();
+                  final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
+                  if (picked != null) setDialogState(() => localFoto = File(picked.path));
+                },
+                child: CircleAvatar(
+                  radius: 32,
+                  backgroundImage: (localFoto != null)
+                      ? FileImage(localFoto!)
+                      : (user.photoURL != null ? NetworkImage(user.photoURL!) : null) as ImageProvider<Object>?,
+                  child: localFoto == null && user.photoURL == null
+                      ? const Icon(Icons.person, size: 32)
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                decoration: const InputDecoration(labelText: 'Nombre'),
+                onChanged: (v) => nombre = v,
+              ),
+              TextField(
+                decoration: const InputDecoration(labelText: 'Apellido'),
+                onChanged: (v) => apellido = v,
+              ),
+              TextField(
+                decoration: const InputDecoration(labelText: 'Edad'),
+                keyboardType: TextInputType.number,
+                onChanged: (v) => edadStr = v,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancelar'),
             ),
-            TextField(
-              decoration: const InputDecoration(labelText: 'Apellido'),
-              onChanged: (v) => apellido = v,
-            ),
-            TextField(
-              decoration: const InputDecoration(labelText: 'Edad'),
-              keyboardType: TextInputType.number,
-              onChanged: (v) => edadStr = v,
+            ElevatedButton(
+              onPressed: () async {
+                if (nombre.isNotEmpty && apellido.isNotEmpty && int.tryParse(edadStr) != null) {
+                  String? urlFoto = user.photoURL;
+                  if (localFoto != null) {
+                    final storageRef = FirebaseStorage.instance
+                        .ref()
+                        .child('user_profiles')
+                        .child('${user.uid}.jpg');
+                    await storageRef.putFile(localFoto!);
+                    urlFoto = await storageRef.getDownloadURL();
+                    await user.updatePhotoURL(urlFoto);
+                  }
+                  await FirebaseFirestore.instance
+                      .collection('usuarios')
+                      .doc(user.uid)
+                      .set({
+                    'nombre': nombre,
+                    'apellido': apellido,
+                    'edad': int.tryParse(edadStr),
+                    'email': user.email,
+                    'photoUrl': urlFoto,
+                    'creado': FieldValue.serverTimestamp(),
+                  });
+                  await user.updateDisplayName('$nombre $apellido');
+                  Navigator.of(ctx).pop();
+                }
+              },
+              child: const Text('Guardar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nombre.isNotEmpty && apellido.isNotEmpty && int.tryParse(edadStr) != null) {
-                await FirebaseFirestore.instance
-                    .collection('usuarios')
-                    .doc(user.uid)
-                    .set({
-                  'nombre': nombre,
-                  'apellido': apellido,
-                  'edad': int.tryParse(edadStr),
-                  'email': user.email,
-                  'creado': FieldValue.serverTimestamp(),
-                });
-                Navigator.of(ctx).pop();
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
   }
@@ -168,10 +249,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.person_add, size: 56, color: AdminLteColors.primary),
+                    // Foto de perfil
+                    GestureDetector(
+                      onTap: _pickPhoto,
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundImage: (_pickedPhoto != null)
+                            ? FileImage(_pickedPhoto!)
+                            : null,
+                        child: _pickedPhoto == null
+                            ? const Icon(Icons.add_a_photo, size: 40, color: AdminLteColors.primary)
+                            : null,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
-                      "Crear Cuenta",
+                      'Crear Cuenta',
                       style: GoogleFonts.sourceSans3(
                         fontWeight: FontWeight.bold,
                         fontSize: 26,
@@ -180,7 +273,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Nombre
                     TextFormField(
                       controller: _nombreController,
                       decoration: const InputDecoration(
@@ -191,7 +283,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Apellido
                     TextFormField(
                       controller: _apellidoController,
                       decoration: const InputDecoration(
@@ -202,7 +293,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Edad
                     TextFormField(
                       controller: _edadController,
                       decoration: const InputDecoration(
@@ -219,7 +309,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Email
                     TextFormField(
                       controller: _emailController,
                       decoration: const InputDecoration(
@@ -235,7 +324,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Contraseña
                     TextFormField(
                       controller: _passwordController,
                       decoration: const InputDecoration(
@@ -251,7 +339,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Confirmar contraseña
                     TextFormField(
                       controller: _confirmController,
                       decoration: const InputDecoration(
@@ -274,6 +361,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           style: GoogleFonts.sourceSans3(color: AdminLteColors.danger),
                         ),
                       ),
+                    if (_enviadoCorreoVerificacion)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          'Correo de verificación enviado. Revisa tu bandeja antes de continuar.',
+                          style: TextStyle(color: Colors.green[700]),
+                        ),
+                      ),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -289,7 +384,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: Colors.white,
                                 strokeWidth: 2,
                               )
-                            : const Text("Registrarse"),
+                            : const Text('Registrarse'),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -304,7 +399,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           width: 24,
                           errorBuilder: (context, error, stackTrace) => const Icon(Icons.login),
                         ),
-                        label: const Text("Registrarse con Google"),
+                        label: const Text('Registrarse con Google'),
                         onPressed: _loading ? null : _loginWithGoogle,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -318,7 +413,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Navigator.of(context).pop();
                       },
                       child: Text(
-                        "¿Ya tienes cuenta? Inicia sesión",
+                        '¿Ya tienes cuenta? Inicia sesión',
                         style: GoogleFonts.sourceSans3(color: AdminLteColors.primary),
                       ),
                     ),

@@ -1,6 +1,6 @@
 
 import 'package:flutter/material.dart';
-// ignore: depend_on_referenced_packages
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
@@ -62,7 +62,7 @@ class _GoogleBooksSearchState extends State<GoogleBooksSearch> {
               child: TextField(
                 controller: _searchCtrl,
                 decoration: const InputDecoration(
-                  labelText: "Buscar libro (título, autor, ISBN...)",
+                  labelText: 'Buscar libro (título, autor, ISBN...)',
                 ),
                 onSubmitted: (_) => _searchBooks(),
               ),
@@ -80,7 +80,7 @@ class _GoogleBooksSearchState extends State<GoogleBooksSearch> {
           Expanded(
             child: ListView.separated(
               itemCount: _results.length,
-              separatorBuilder: (_, __) => const Divider(),
+              separatorBuilder: (_,__) => const Divider(),
               itemBuilder: (_, i) {
                 final libro = _results[i];
                 return ListTile(
@@ -107,7 +107,7 @@ class _GoogleBooksSearchState extends State<GoogleBooksSearch> {
             ),
           )
         else
-          const Text("Sin resultados"),
+          const Text('Sin resultados'),
       ],
     );
   }

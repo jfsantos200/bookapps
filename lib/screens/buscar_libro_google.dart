@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import '../models/libro.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/libros_service.dart';
 
 class BuscarLibroGoogleScreen extends StatefulWidget {
@@ -22,6 +24,7 @@ class _BuscarLibroGoogleScreenState extends State<BuscarLibroGoogleScreen> {
       _loading = true;
       _resultados = [];
     });
+
     if (_fuente == 'Google Books') {
       final url = Uri.parse('https://www.googleapis.com/books/v1/volumes?q=${Uri.encodeComponent(texto)}');
       final respuesta = await http.get(url);
@@ -32,7 +35,7 @@ class _BuscarLibroGoogleScreenState extends State<BuscarLibroGoogleScreen> {
         });
       }
     } else {
-      // Open Library
+      // OpenLibrary
       final url = Uri.parse('https://openlibrary.org/search.json?q=${Uri.encodeComponent(texto)}');
       final respuesta = await http.get(url);
       if (respuesta.statusCode == 200) {
@@ -51,20 +54,31 @@ class _BuscarLibroGoogleScreenState extends State<BuscarLibroGoogleScreen> {
     if (_fuente == 'Google Books') {
       final libro = libroData['volumeInfo'];
       final nuevoLibro = Libro(
+        uid: FirebaseAuth.instance.currentUser!.uid,
+        id: '',
         titulo: libro['title'] ?? 'Sin título',
-        autor: (libro['authors'] ?? ['Desconocido']).join(', '),
-        imagen: (libro['imageLinks'] != null) ? libro['imageLinks']['thumbnail'] ?? '' : '',
-        leido: false, id: '',
+        autor: (libro['authors'] != null ? (libro['authors'] as List).join(', ') : 'Desconocido'),
+        imagen: (libro['imageLinks'] != null)
+            ? (libro['imageLinks']['thumbnail'] ?? libro['imageLinks']['smallThumbnail'] ?? '')
+            : '',
+        leido: false,
+        archivoUrl: null, // Cambia esto si quieres guardar una muestra PDF si existe
+        localPath: null,
       );
       await LibrosService.addLibro(nuevoLibro);
     } else {
+      // OpenLibrary
       final nuevoLibro = Libro(
+        uid: FirebaseAuth.instance.currentUser!.uid,
+        id: '',
         titulo: libroData['title'] ?? 'Sin título',
-        autor: (libroData['author_name'] ?? ['Desconocido']).join(', '),
+        autor: (libroData['author_name'] != null ? (libroData['author_name'] as List).join(', ') : 'Desconocido'),
         imagen: libroData['cover_i'] != null
             ? 'https://covers.openlibrary.org/b/id/${libroData['cover_i']}-M.jpg'
             : '',
-        leido: false, id: '',
+        leido: false,
+        archivoUrl: null,
+        localPath: null,
       );
       await LibrosService.addLibro(nuevoLibro);
     }

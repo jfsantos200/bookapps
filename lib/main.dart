@@ -7,7 +7,7 @@ import 'screens/lista_libros.dart';
 import 'screens/perfil_usuario.dart';
 import 'screens/libros_leidos_screen.dart';
 import 'screens/login_screen.dart';
-
+import 'screens/splash_screen.dart';  
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -25,7 +25,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'BookApps',
       theme: adminLteTheme,
-      home: const LoginScreen(),
+      home: const SplashScreen(),  
       routes: {
         '/login': (_) => const LoginScreen(),
         '/register': (_) => const RegisterScreen(),

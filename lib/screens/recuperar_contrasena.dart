@@ -20,7 +20,7 @@ class _RecuperarContrasenaState extends State<RecuperarContrasena> {
       setState(() => _enviado = true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: ${e.toString()}")),
+        SnackBar(content: Text('Error: ${e.toString()}')),
       );
     }
   }
@@ -28,26 +28,26 @@ class _RecuperarContrasenaState extends State<RecuperarContrasena> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Recuperar Contraseña")),
+      appBar: AppBar(title: const Text('Recuperar Contraseña')),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: _enviado
-            ? const Center(child: Text("Correo enviado. Revisa tu bandeja."))
+            ? const Center(child: Text('Correo enviado. Revisa tu bandeja.'))
             : Column(
                 children: [
-                  const Text("Ingresa tu correo para restablecer la contraseña."),
+                  const Text('Ingresa tu correo para restablecer la contraseña.'),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _emailController,
                     decoration: const InputDecoration(
-                      labelText: "Correo electrónico",
+                      labelText: 'Correo electrónico',
                       border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _enviarEmail,
-                    child: const Text("Enviar enlace"),
+                    child: const Text('Enviar enlace'),
                   ),
                 ],
               ),

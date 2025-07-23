@@ -5,6 +5,9 @@ import '../theme.dart';
 import 'register_screen.dart';
 import 'lista_libros.dart';
 
+// Importa el logo de Google solo si implementas el botón Google
+// import 'package:google_sign_in/google_sign_in.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -79,6 +82,33 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // Si quieres login con Google, descomenta esta función y agrega el botón abajo
+  /*
+  Future<void> _loginWithGoogle() async {
+    setState(() { _loading = true; _errorMessage = null; });
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() { _loading = false; });
+        return;
+      }
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const ListaLibros()),
+      );
+    } catch (e) {
+      setState(() => _errorMessage = "Error al iniciar con Google");
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+  */
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,10 +127,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock, size: 56, color: AdminLteColors.primary),
-                    const SizedBox(height: 16),
+                    // Logo principal (logo.png)
+                    Image.asset('assets/logo.png', height: 200, width: 200),
+                    const SizedBox(height: 0),
                     Text(
-                      "Iniciar Sesión",
+                      'Iniciar Sesión',
                       style: GoogleFonts.sourceSans3(
                         fontWeight: FontWeight.bold,
                         fontSize: 26,
@@ -159,14 +190,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.white,
                                 strokeWidth: 2,
                               )
-                            : const Text("Entrar"),
+                            : const Text('Entrar'),
                       ),
                     ),
-                    // Recuperar contraseña
+                    // Si implementas login con Google, descomenta esto:
+                    /*
+                    const SizedBox(height: 14),
+                    OutlinedButton.icon(
+                      icon: Image.asset('assets/google_logo.png', height: 22),
+                      label: const Text("Iniciar con Google"),
+                      onPressed: _loading ? null : _loginWithGoogle,
+                    ),
+                    */
                     TextButton(
                       onPressed: _recuperarContrasena,
-                      child: Text(
-                        "¿Olvidaste tu contraseña?",
+                      child: const Text(
+                        '¿Olvidaste tu contraseña?',
                         style: TextStyle(color: AdminLteColors.info),
                       ),
                     ),
@@ -178,7 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                       child: Text(
-                        "¿No tienes cuenta? Regístrate",
+                        '¿No tienes cuenta? Regístrate',
                         style: GoogleFonts.sourceSans3(color: AdminLteColors.primary),
                       ),
                     ),

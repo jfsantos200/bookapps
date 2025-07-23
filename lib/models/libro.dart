@@ -1,37 +1,60 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Libro {
   final String id;
+  final String uid;
   final String titulo;
   final String autor;
+  final String imagen;
   final bool leido;
+  final String? archivoUrl; // Storage URL o null
+  final String? localPath;  // Ruta local
+  final String tipoArchivo;   // 'pdf' o 'epub'
 
-  Libro({
+  Libro(this.tipoArchivo, {
     required this.id,
+    required this.uid,
     required this.titulo,
     required this.autor,
-    this.leido = false, required String imagen,
+    required this.imagen,
+    required this.leido,
+    this.archivoUrl,
+    this.localPath,
   });
 
-  Libro copyWith({bool? leido}) => Libro(
-        id: id,
-        titulo: titulo,
-        autor: autor,
-        leido: leido ?? this.leido, imagen: '',
-      );
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'titulo': titulo,
-        'autor': autor,
-        'leido': leido,
-      };
+  factory Libro.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Libro(
+      id: doc.id,
+      data['tipoArchivo'] ?? '', // Add this line
+      uid: data['uid'] ?? '',
+      titulo: data['titulo'] ?? '',
+      autor: data['autor'] ?? '',
+      imagen: data['imagen'],
+      leido: data['leido'] ?? false,
+    );
+  }
 
-  factory Libro.fromJson(Map<String, dynamic> json) => Libro(
-        id: json['id'],
-        titulo: json['titulo'],
-        autor: json['autor'],
-        leido: json['leido'] ?? false, imagen: '',
-      );
+  Libro copyWith({String? id, String? uid, String? titulo, String? autor, String? imagen, bool? leido}) {
+    return Libro(
+      tipoArchivo,
+      id: id ?? this.id,
+      uid: uid ?? this.uid,
+      titulo: titulo ?? this.titulo,
+      autor: autor ?? this.autor,
+      imagen: imagen ?? this.imagen,
+      leido: leido ?? this.leido,
+    );
+  }
 
-  get imagen => null;
+  Map<String, dynamic> toMap() {
+    return {
+      'uid': uid,
+      'titulo': titulo,
+      'autor': autor,
+      'imagen': imagen,
+      'leido': leido,
+    };
+  }
 }

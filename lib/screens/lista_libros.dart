@@ -1,3 +1,5 @@
+import 'package:bookapps/widgets/pdf_view_screen.dart';
+import 'package:bookapps/widgets/epub_view_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,6 +11,9 @@ import 'perfil_usuario.dart';
 import 'login_screen.dart';
 import '../theme.dart';
 import 'book_card.dart' as book_card_widget;
+// Asegúrate de importar tus visores de PDF/EPUB:
+import 'package:bookapps/widgets/pdf_view_screen.dart';
+import 'package:bookapps/widgets/epub_view_screen.dart';
 
 class ListaLibros extends StatefulWidget {
   const ListaLibros({super.key});
@@ -39,15 +44,16 @@ class _ListaLibrosState extends State<ListaLibros> {
     }
   }
 
+  // Solo libros NO leídos
   Future<void> _loadLibros() async {
     final libros = await LibrosService.getLibros();
-    setState(() => _libros = libros);
+    setState(() => _libros = libros.where((l) => !l.leido).toList());
   }
 
   void _agregarLibro() async {
     final libro = await Navigator.push<Libro>(
       context,
-      MaterialPageRoute(builder: (_) => const AgregarLibroScreen()),
+      MaterialPageRoute(builder: (_) => const AgregarLibroScreen(libro: null,)),
     );
     if (libro != null) {
       await LibrosService.addLibro(libro);
@@ -55,11 +61,13 @@ class _ListaLibrosState extends State<ListaLibros> {
     }
   }
 
-  void _abrirLibrosLeidos() {
-    Navigator.push(
+  void _abrirLibrosLeidos() async {
+    // Espera resultado para recargar si se desmarca alguno allá
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const LibrosLeidosScreen()),
     );
+    _loadLibros();
   }
 
   void _abrirPerfil() {
@@ -75,6 +83,33 @@ class _ListaLibrosState extends State<ListaLibros> {
       (Route<dynamic> route) => false,
     );
   }
+
+  // ---------------------------
+  // Lógica para abrir visor PDF/EPUB/local
+  void _abrirLibro(Libro libro) {
+    if (libro.archivoUrl != null && libro.archivoUrl!.endsWith('.pdf')) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => PDFViewScreen(url: libro.archivoUrl),
+      ));
+    } else if (libro.localPath != null && libro.localPath!.endsWith('.pdf')) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => PDFViewScreen(path: libro.localPath),
+      ));
+    } else if (libro.archivoUrl != null && libro.archivoUrl!.endsWith('.epub')) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => EpubViewScreen(url: libro.archivoUrl),
+      ));
+    } else if (libro.localPath != null && libro.localPath!.endsWith('.epub')) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => EpubViewScreen(path: libro.localPath),
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Formato no soportado o falta archivo.')),
+      );
+    }
+  }
+  // ---------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -104,12 +139,7 @@ class _ListaLibrosState extends State<ListaLibros> {
             tooltip: 'Perfil',
             onPressed: _abrirPerfil,
           ),
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.more_vert),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
-            ),
-          ),
+          // EndDrawer deshabilitado en tu último flujo.
         ],
       ),
       drawer: canPop
@@ -121,12 +151,12 @@ class _ListaLibrosState extends State<ListaLibros> {
                   padding: EdgeInsets.zero,
                   children: [
                     DrawerHeader(
-                      decoration: BoxDecoration(color: AdminLteColors.dark),
+                      decoration: const BoxDecoration(color: AdminLteColors.dark),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.account_circle, color: Colors.white, size: 42),
+                          const Icon(Icons.account_circle, color: Colors.white, size: 42),
                           const SizedBox(height: 12),
                           Text(
                             nombreCompleto.isNotEmpty
@@ -177,35 +207,6 @@ class _ListaLibrosState extends State<ListaLibros> {
                 ),
               ),
             ),
-      endDrawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
-              child: Text('Acciones', style: TextStyle(color: Colors.white, fontSize: 22)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.add),
-              title: const Text('Agregar libro'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _agregarLibro();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.check_circle_outline),
-              title: const Text('Libros leídos'),
-              onTap: () {
-                Navigator.of(context).pop();
-                _abrirLibrosLeidos();
-              },
-            ),
-          ],
-        ),
-      ),
       body: _libros.isEmpty
           ? const Center(child: Text('No tienes libros aún.'))
           : ListView.builder(
@@ -214,10 +215,7 @@ class _ListaLibrosState extends State<ListaLibros> {
               itemBuilder: (context, i) {
                 final libro = _libros[i];
                 return book_card_widget.BookCard(
-                  title: libro.titulo,
-                  author: libro.autor,
-                  imageUrl: libro.imagen ?? '',
-                  isRead: libro.leido,
+                  libro: libro,
                   onMarkRead: libro.leido
                       ? null
                       : () async {
@@ -225,15 +223,63 @@ class _ListaLibrosState extends State<ListaLibros> {
                           await LibrosService.updateLibro(actualizado);
                           _loadLibros();
                         },
-                  onTap: () {},
-                );
+                  onTap: () => _abrirLibro(libro),
+                  onEdit: () async {
+                    // Implementa tu pantalla de edición aquí
+                    final libroActualizado = await Navigator.push<Libro>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AgregarLibroScreen(libro: libro),
+                      ),
+                    );
+                    if (libroActualizado != null) {
+                      await LibrosService.updateLibro(libroActualizado);
+                      _loadLibros();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Libro actualizado')),
+                      );
+                    }
+                  },
+                  onDelete: () async {
+                    await LibrosService.deleteLibro(libro.id);
+                    _loadLibros();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Libro eliminado')),
+                    );
+                    // Si quieres confirmar antes de eliminar, puedes usar un diálogo:
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmar eliminación'),
+                        content: const Text('¿Estás seguro de que deseas eliminar este libro?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Eliminar'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancelar'),
+                          ),
+                     ]
+                      ),
+                    );
+                    if (confirm == true) {
+                      await LibrosService.deleteLibro(libro.id);
+                      _loadLibros();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Libro eliminado')),
+                      );
+                    }
+                  }, title: '', author: '', imageUrl: '', isRead: null,
+                ); // Pass a non-null value for isRead
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AdminLteColors.accent,
-        child: const Icon(Icons.add),
-        onPressed: _agregarLibro,
-      ),
+      //floatingActionButton: FloatingActionButton(
+      //  backgroundColor: AdminLteColors.accent,
+      //  onPressed: _agregarLibro,
+      //  child: const Icon(Icons.add),
+      //),
     );
   }
 }

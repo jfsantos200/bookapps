@@ -1,3 +1,4 @@
+import 'package:bookapps/models/libro.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme.dart';
@@ -17,7 +18,7 @@ class BookCard extends StatelessWidget {
     required this.imageUrl,
     required this.isRead,
     this.onMarkRead,
-    this.onTap,
+    this.onTap, required Libro libro, required Future<Null> Function() onEdit, required Future<Null> Function() onDelete,
   });
 
   @override
@@ -47,14 +48,14 @@ class BookCard extends StatelessWidget {
                         width: 90,
                         height: 120,
                         color: AdminLteColors.light,
-                        child: Icon(Icons.book, size: 50, color: AdminLteColors.primary),
+                        child: const Icon(Icons.book, size: 50, color: AdminLteColors.primary),
                       ),
                     )
                   : Container(
                       width: 90,
                       height: 120,
                       color: AdminLteColors.light,
-                      child: Icon(Icons.book, size: 50, color: AdminLteColors.primary),
+                      child: const Icon(Icons.book, size: 50, color: AdminLteColors.primary),
                     ),
             ),
             Expanded(
@@ -86,10 +87,10 @@ class BookCard extends StatelessWidget {
                         if (isRead)
                           Row(
                             children: [
-                              Icon(Icons.check_circle, color: AdminLteColors.accent, size: 22),
+                              const Icon(Icons.check_circle, color: AdminLteColors.accent, size: 22),
                               const SizedBox(width: 6),
                               Text(
-                                "Leído",
+                                'Leído',
                                 style: GoogleFonts.sourceSans3(
                                   color: AdminLteColors.accent,
                                   fontWeight: FontWeight.w600,
@@ -101,7 +102,7 @@ class BookCard extends StatelessWidget {
                           ElevatedButton.icon(
                             onPressed: onMarkRead,
                             icon: const Icon(Icons.check_circle_outline),
-                            label: const Text("Marcar como leído"),
+                            label: const Text('Marcar como leído'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AdminLteColors.primary,
                               foregroundColor: Colors.white,
